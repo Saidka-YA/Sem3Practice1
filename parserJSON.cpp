@@ -37,16 +37,28 @@ void ConfigureBD::createDirectories(string path){
     string name = schema["name"].get<string>();
     filesystem::create_directory(name);
 
-    for (auto [table_name, colimns] : schema["structure"].items()){
+    for (auto [table_name, columns] : schema["structure"].items()){
         string path = name + '/' + table_name;
         filesystem::create_directory(path);
         path += "/1.csv";
-        ofstream file(path);
-        if (!file.is_open()){
-            cerr << "ERROR: unable create file\n";
-            return;
+        if(!filesystem::exists(path)){
+            ofstream file(path);
+            if (!file.is_open()){
+                cerr << "ERROR: unable create file\n";
+                return;
+            }
+            file.close();
         }
-        file.close();
+        ofstream file(path);
+        bool first = true;
+        for (string name : columns) {
+            if (!first) {
+                file << ",";
+            }
+            file << name;
+            first = false;
+            
+        }
     }
 }
 
