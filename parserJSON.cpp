@@ -23,8 +23,32 @@ bool ConfigureBD::readJSON(string path){
         return false;
     }
 
-    schema = json::parse(file);
+    try {
+        schema = json::parse(file);
+    } catch (json::parse_error) {
+        cerr << "ERROR: unable parse json\n";
+        return false;
+    }
     file.close();
+
+    if (!schema.is_object()) {
+        cerr << "ERROR: unvalid configuration\n";
+        return false;
+    }
+    if (!schema["name"].is_string()) {
+        cerr << "ERROR: unvalid configuration\n";
+        return false;
+    }
+    if (!schema["tuples_limit"].is_number_integer()) {
+        cerr << "ERROR: unvalid configuration\n";
+        return false;
+    }
+    if (!schema["structure"].is_array()) {
+        cerr << "ERROR: unvalid configuration\n";
+        return false;
+    }
+
+    return true;
 }
 
 void ConfigureBD::printJSON(){
@@ -38,8 +62,8 @@ void ConfigureBD::createDirectories(string path){
     string name = schema["name"].get<string>();
     filesystem::create_directory(name);
 
-    for (auto [table_name, columns] : schema["structure"].items()){
-        string path = name + '/' + table_name;
+    for (auto [tableName, columns] : schema["structure"].items()){
+        string path = name + '/' + tableName;
         filesystem::create_directory(path);
         path += "/1.csv";
         if(!filesystem::exists(path)){
@@ -48,7 +72,7 @@ void ConfigureBD::createDirectories(string path){
                 cerr << "ERROR: unable create file\n";
                 return;
             }
-            file << name << "_pk,";
+            file << tableName << "_pk,";
             bool first = true;
             for (string name : columns) {
                 if (!first) {
