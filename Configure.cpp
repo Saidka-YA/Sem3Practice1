@@ -38,7 +38,7 @@ bool ConfigureBD::readJSON(const string& path){
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
-    if (!schema.contains("tuples_limit") || !schema["tuples_limit"].is_number_integer() || schema["tuples_limit"] < 0) {
+    if (!schema.contains("tuples_limit") || !schema["tuples_limit"].is_number_integer() || schema["tuples_limit"] <= 0) {
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
