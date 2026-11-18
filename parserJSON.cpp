@@ -9,18 +9,18 @@ using json = nlohmann::json;
 class ConfigureBD{
 private:
     json schema;
-    void readJSON(string path);
+    bool readJSON(string path);
 public:
     void createDirectories(string path);
     void printJSON();
 };
 
-void ConfigureBD::readJSON(string path){
+bool ConfigureBD::readJSON(string path){
     ifstream file(path);
 
     if (!file.is_open()){
         cerr << "ERROR: unable read fil\n";
-        return;
+        return false;
     }
 
     schema = json::parse(file);
@@ -32,8 +32,9 @@ void ConfigureBD::printJSON(){
 }
 
 void ConfigureBD::createDirectories(string path){
-    readJSON(path);
     
+    if(!readJSON(path)) return;
+
     string name = schema["name"].get<string>();
     filesystem::create_directory(name);
 
@@ -47,6 +48,7 @@ void ConfigureBD::createDirectories(string path){
                 cerr << "ERROR: unable create file\n";
                 return;
             }
+            file << name << "_pk,";
             bool first = true;
             for (string name : columns) {
                 if (!first) {
@@ -55,6 +57,7 @@ void ConfigureBD::createDirectories(string path){
                 file << name;
                 first = false;
             }
+            file << '\n';
             file.close();
         }
        
