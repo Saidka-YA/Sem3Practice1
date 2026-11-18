@@ -35,15 +35,15 @@ bool ConfigureBD::readJSON(string path){
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
-    if (!schema["name"].is_string()) {
+    if (schema.contains("name") && !schema["name"].is_string()) {
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
-    if (!schema["tuples_limit"].is_number_integer()) {
+    if (schema.contains("tuples_limit") && !schema["tuples_limit"].is_number_integer() && schema["tuples_limit"] < 0) {
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
-    if (!schema["structure"].is_array()) {
+    if (schema.contains("structure") && !schema["structure"].is_object()) {
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
@@ -63,11 +63,18 @@ void ConfigureBD::createDirectories(string path){
     filesystem::create_directory(name);
 
     for (auto [tableName, columns] : schema["structure"].items()){
-        string path = name + '/' + tableName;
-        filesystem::create_directory(path);
-        path += "/1.csv";
-        if(!filesystem::exists(path)){
-            ofstream file(path);
+        filesystem::create_directory(filesystem::path(name) / tableName);
+        if (!filesystem::exists( name + "/" + tableName + "/" + tableName + "_pk_seguence")) {
+            ofstream file (name + "/" + tableName + "/" + tableName + "_pk_seguence");
+            if (!file.is_open()) {
+                cerr << "ERROR: unable create file\n";
+                return;
+            }
+            file << "0";
+            file.close();
+        }
+        if(!filesystem::exists(filesystem::path(name) / tableName / "1.csv")){
+            ofstream file(filesystem::path(name) / tableName / "1.csv");
             if (!file.is_open()){
                 cerr << "ERROR: unable create file\n";
                 return;
@@ -86,10 +93,4 @@ void ConfigureBD::createDirectories(string path){
         }
        
     }
-}
-
-int main(){
-    ConfigureBD config;
-    config.createDirectories("/home/saidka/ZALUPA/schema.json");
-    return 0;
 }
