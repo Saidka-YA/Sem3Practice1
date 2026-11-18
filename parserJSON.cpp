@@ -6,16 +6,15 @@ using namespace std;
 using json = nlohmann::json;
 
 
-class ConfigureBD{
+class ConfigureBD {
 private:
-    json schema;
-    bool readJSON(string path);
+    bool readJSON(const string& path);
 public:
-    void createDirectories(string path);
-    void printJSON();
+    json schema;
+    void createDirectories(const string& path);
 };
 
-bool ConfigureBD::readJSON(string path){
+bool ConfigureBD::readJSON(const string& path){
     ifstream file(path);
 
     if (!file.is_open()){
@@ -35,15 +34,15 @@ bool ConfigureBD::readJSON(string path){
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
-    if (schema.contains("name") && !schema["name"].is_string()) {
+    if (!schema.contains("name") || !schema["name"].is_string()) {
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
-    if (schema.contains("tuples_limit") && !schema["tuples_limit"].is_number_integer() && schema["tuples_limit"] < 0) {
+    if (!schema.contains("tuples_limit") || !schema["tuples_limit"].is_number_integer() || schema["tuples_limit"] < 0) {
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
-    if (schema.contains("structure") && !schema["structure"].is_object()) {
+    if (!schema.contains("structure") || !schema["structure"].is_object()) {
         cerr << "ERROR: unvalid configuration\n";
         return false;
     }
@@ -51,11 +50,7 @@ bool ConfigureBD::readJSON(string path){
     return true;
 }
 
-void ConfigureBD::printJSON(){
-    cout << schema.dump() << endl;
-}
-
-void ConfigureBD::createDirectories(string path){
+void ConfigureBD::createDirectories(const string& path){
     
     if(!readJSON(path)) return;
 
@@ -64,8 +59,8 @@ void ConfigureBD::createDirectories(string path){
 
     for (auto [tableName, columns] : schema["structure"].items()){
         filesystem::create_directory(filesystem::path(name) / tableName);
-        if (!filesystem::exists( name + "/" + tableName + "/" + tableName + "_pk_seguence")) {
-            ofstream file (name + "/" + tableName + "/" + tableName + "_pk_seguence");
+        if (!filesystem::exists( name + "/" + tableName + "/" + tableName + "_pk_sequence")) {
+            ofstream file (name + "/" + tableName + "/" + tableName + "_pk_sequence");
             if (!file.is_open()) {
                 cerr << "ERROR: unable create file\n";
                 return;
