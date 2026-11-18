@@ -47,18 +47,17 @@ void ConfigureBD::createDirectories(string path){
                 cerr << "ERROR: unable create file\n";
                 return;
             }
+            bool first = true;
+            for (string name : columns) {
+                if (!first) {
+                    file << ",";
+                }
+                file << name;
+                first = false;
+            }
             file.close();
         }
-        ofstream file(path);
-        bool first = true;
-        for (string name : columns) {
-            if (!first) {
-                file << ",";
-            }
-            file << name;
-            first = false;
-            
-        }
+       
     }
 }
 
