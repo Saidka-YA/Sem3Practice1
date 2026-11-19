@@ -79,13 +79,17 @@ void ConfigureBD::createDirectories(const string& path){
     }
 }
 
-void ReadBD::ReadTable(const string& tableName) {
+void ConfigureBD::ReadTable(const string& tableName) {
     if (!schema.is_object()) return;
     if (schema["structure"].count(tableName) <= 0) {
         cerr << "ERROR: Unable read table\n";
         return;
     }
     string path = schema["name"].get<string>() + "/" + tableName;
+    if (!fs::exists(path + "/" + "1.csv")) {
+        cerr << "ERROR: unble read file\n";
+        return;
+    }
     for (int i = 1; i < INT_MAX; i++) {
         if (!fs::exists(path + "/" + to_string(i) + ".csv")) {
             cerr << "ERROR: unble read file\n";
@@ -98,21 +102,21 @@ void ReadBD::ReadTable(const string& tableName) {
         }
         string zagolovok;
         getline(file, zagolovok);
-        cout << zagolovok << endl;
+        // Допилить логику
         string line;
-        while (getline(file, line)){
-            PrintTable(line);
+        while (getline(file, line)) {
+            // Заглушка
         }
     }
     
 }
 
-void ReadBD::PrintTable(string str) {
+void ConfigureBD::PrintTable(string str) { // Временная функция для тестирования
     cout << str << endl;
 }
 
 int main() {
-    ReadBD someBD;
+    ConfigureBD someBD;
     someBD.createDirectories("/home/saidka/ZALUPA/schema.json");
     someBD.ReadTable("Tablica1");
     return 0;
