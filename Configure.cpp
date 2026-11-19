@@ -1,6 +1,7 @@
 #include "Configure.h"
 #include <filesystem>
 #include <fstream>
+#include <string>
 
 bool ConfigureBD::readJSON(const string& path){
     ifstream file(path);
@@ -79,21 +80,31 @@ void ConfigureBD::createDirectories(const string& path){
 }
 
 void ReadBD::ReadTable(const string& tableName) {
+    if (!schema.is_object()) return;
+    if (schema["structure"].count(tableName) <= 0) {
+        cerr << "ERROR: Unable read table\n";
+        return;
+    }
     string path = schema["name"].get<string>() + "/" + tableName;
-    for (const auto& entry : fs::directory_iterator(path)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".csv") {
-           path = entry.path();
-           ifstream file(path);
-           if (!file.is_open()) {
-                cerr << "ERROR: unable read file\n";
-                return;
-            }
-            string line;
-            while (getline(file, line)) {
-                PrintTable(line);
-            }
+    for (int i = 1; i < INT_MAX; i++) {
+        if (!fs::exists(path + "/" + to_string(i) + ".csv")) {
+            cerr << "ERROR: unble read file\n";
+            return;
+        }
+        ifstream file (path + "/" + to_string(i) + ".csv");
+        if (!file.is_open()) {
+            cerr << "ERROR: unable read file\n";
+            return;
+        }
+        string zagolovok;
+        getline(file, zagolovok);
+        cout << zagolovok << endl;
+        string line;
+        while (getline(file, line)){
+            PrintTable(line);
         }
     }
+    
 }
 
 void ReadBD::PrintTable(string str) {
