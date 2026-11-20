@@ -92,7 +92,6 @@ void ConfigureBD::ReadTable(const string& tableName) {
     }
     for (int i = 1; i < INT_MAX; i++) {
         if (!fs::exists(path + "/" + to_string(i) + ".csv")) {
-            cerr << "ERROR: unble read file\n";
             return;
         }
         ifstream file (path + "/" + to_string(i) + ".csv");
@@ -119,5 +118,11 @@ int main() {
     ConfigureBD someBD;
     someBD.createDirectories("/home/saidka/ZALUPA/schema.json");
     someBD.ReadTable("Tablica1");
+
+    Reader read1("/home/saidka/ZALUPA/Schema 1/Tablica1");
+    string str;
+    while (read1.nextRow(str)) {
+        cout << str << endl;
+    }
     return 0;
 }
