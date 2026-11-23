@@ -1,6 +1,7 @@
 #include "Configure.h"
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <string>
 
 bool ConfigureBD::readJSON(const string& path){
@@ -114,6 +115,44 @@ void ConfigureBD::PrintTable(string str) { // Временная функция 
     cout << str << endl;
 }
 
+bool Reader::nextRow(string& line) {
+    while (true) {
+        if (getline(file, line)) {
+            return true;
+        }
+
+        file.close();
+        ++currentFile;
+
+        fs::path nextPath = path / (to_string(currentFile) + ".csv");
+        if (!fs::exists(nextPath)) {
+            finished = true;
+            return false;
+        }
+
+        file.open(nextPath);
+        if(!file.is_open()) {
+            finished = true;
+            return false;
+        }
+
+        string header;
+        if (!getline(file, header)){
+            finished = true;
+            return false;
+        }
+    }
+}
+
+void Reader::readLine(string& line, const char& separator){
+    stringstream ss(line);
+    string token;
+    while (getline(ss, token, separator)) {
+        cout << token << endl;
+    }
+    
+}
+
 int main() {
     ConfigureBD someBD;
     someBD.createDirectories("/home/saidka/ZALUPA/schema.json");
@@ -122,7 +161,7 @@ int main() {
     Reader read1("/home/saidka/ZALUPA/Schema 1/Tablica1");
     string str;
     while (read1.nextRow(str)) {
-        cout << str << endl;
+        read1.readLine(str, ',');
     }
     return 0;
 }
