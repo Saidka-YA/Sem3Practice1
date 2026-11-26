@@ -1,8 +1,8 @@
 {
-	"name": "Schema 1",
-	"tuples_limit": 1000,
-	"structure": {
-		"Tablica1": ["kolonka1", "kolonka2", "kolonka3", "kolonka4"],
-		"Tablica2": ["kolonka1", "kolonka2"]
-	}
-}
+        "name": "TestDB",
+        "tuples_limit": 2,
+        "structure": {
+            "Tablica1": ["name", "city", "age"],
+            "Tablica2": ["label"]
+        }
+    }
