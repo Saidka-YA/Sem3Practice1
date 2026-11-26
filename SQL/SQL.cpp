@@ -2,6 +2,8 @@
 
 bool SQLcommands::insert(const string& tableName, const Vector<string>& values) {
     if (values.Size() != config.countColumns(tableName)) {
+        cerr << "ERROR: INSERT into " << tableName << " expects " << config.countColumns(tableName)
+             << " values, got " << values.Size() << '\n';
         return false;
     }
 
@@ -9,19 +11,19 @@ bool SQLcommands::insert(const string& tableName, const Vector<string>& values) 
 
     TableLock tableLock(pathToTable / (tableName + "_lock"));
     if (!tableLock.isLocked()) {
-        cerr << "ERROR: unable to lock table: " << tableName << '\n';
+        cerr << "ERROR: INSERT cannot lock table: " << tableName << '\n';
         return false;
     }
 
     fs::path sequencePath = pathToTable / (tableName + "_pk_sequence");
     ifstream readPKSequence(sequencePath);
     if (!readPKSequence.is_open()) {
-        cerr << "ERROR\n";
+        cerr << "ERROR: unable to open primary key sequence: " << sequencePath << '\n';
         return false;
     }
     int key; 
     if (!(readPKSequence >> key)) {
-        cerr << "ERROR\n";
+        cerr << "ERROR: invalid primary key sequence: " << sequencePath << '\n';
         return false;
     }
     readPKSequence.close();
@@ -34,7 +36,7 @@ bool SQLcommands::insert(const string& tableName, const Vector<string>& values) 
         if (!fs::exists(csvPath)) {
             ofstream file(csvPath);
             if (!file.is_open()) {
-                cerr << "ERROR\n";
+                cerr << "ERROR: unable to create CSV file: " << csvPath << '\n';
                 return false;
             }
             file << tableName << "_pk,";
@@ -52,7 +54,7 @@ bool SQLcommands::insert(const string& tableName, const Vector<string>& values) 
         }
         ifstream tableFile(csvPath);
         if (!tableFile.is_open()) {
-            cerr << "ERROR\n";
+            cerr << "ERROR: unable to open CSV file: " << csvPath << '\n';
             return false;
         }
         string header; getline(tableFile, header);
@@ -69,7 +71,7 @@ bool SQLcommands::insert(const string& tableName, const Vector<string>& values) 
 
     ofstream tableFile(csvPath, ios::app);
     if (!tableFile.is_open()) {
-        cerr << "ERROR\n";
+        cerr << "ERROR: unable to open CSV file for INSERT: " << csvPath << '\n';
         return false;
     }
     tableFile << to_string(newKey) << ',';
@@ -91,20 +93,20 @@ bool SQLcommands::insert(const string& tableName, const Vector<string>& values) 
 
     tableFile.flush();
     if (!tableFile) {
-        cerr << "ERROR\n";
+        cerr << "ERROR: unable to write new row to CSV file: " << csvPath << '\n';
         return false;
     }
     
     tableFile.close();
 
     if (tableFile.fail()) {
-        cerr << "ERROR\n";
+        cerr << "ERROR: unable to close CSV file after INSERT: " << csvPath << '\n';
         return false;
     }
     
     ofstream writePKSequence(pathToTable / (tableName + "_pk_sequence"));
     if (!writePKSequence.is_open()) {
-        cerr << "ERROR\n";
+        cerr << "ERROR: unable to open primary key sequence for writing: " << sequencePath << '\n';
         return false;
     }
 
@@ -112,14 +114,14 @@ bool SQLcommands::insert(const string& tableName, const Vector<string>& values) 
 
     writePKSequence.flush();
     if (!writePKSequence) {
-        cerr << "ERROR\n";
+        cerr << "ERROR: unable to write primary key sequence: " << sequencePath << '\n';
         return false;
     }
 
     writePKSequence.close();
 
     if (writePKSequence.fail()) {
-        cerr << "ERROR\n";
+        cerr << "ERROR: unable to close primary key sequence: " << sequencePath << '\n';
         return false;
     }
 
@@ -194,7 +196,7 @@ bool SQLcommands::select(const string& tableName, const WhereClause* where, cons
         }
 
         if (!found) {
-            std::cerr << "Колонка не найдена: " << columns[i] << '\n';
+            std::cerr << "ERROR: column not found in table " << tableName << ": " << columns[i] << '\n';
             return false;
         }
     }
@@ -221,7 +223,7 @@ bool SQLcommands::select(const string& tableName, const WhereClause* where, cons
     }
 
     if (tableReader.hasReadError()) {
-        cerr << "ERROR: unable to read table CSV\n";
+        cerr << "ERROR: unable to read CSV files for table: " << tableName << '\n';
         return false;
     }
 
@@ -250,7 +252,7 @@ bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* wh
     for (size_t i = 0; i < tableNames.Size(); ++i) {
         fs::path path = fs::path(config.databaseName()) / tableNames[i];
         if (!fs::is_regular_file(path / "1.csv")) {
-            cerr << "ERROR: table not found: " << tableNames[i] << '\n';
+            cerr << "ERROR: SELECT table not found or 1.csv missing: " << tableNames[i] << '\n';
             return false;
         }
         paths.pushBack(path);
@@ -295,7 +297,7 @@ bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* wh
     for (size_t i = 0; i < columns.Size(); ++i) {
         FieldIndex index;
         if (!findField(columns[i], index)) {
-            cerr << "ERROR: unknown or ambiguous column: " << columns[i] << '\n';
+            cerr << "ERROR: SELECT column not found or ambiguous: " << columns[i] << '\n';
             return false;
         }
         indexes.pushBack(index);
@@ -317,14 +319,14 @@ bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* wh
             for (size_t c = 0; c < group.Size(); ++c) {
                 FieldIndex index;
                 if (!findField(group[c].columnName, index)) {
-                    cerr << "ERROR: unknown or ambiguous column: "
+                    cerr << "ERROR: WHERE column not found or ambiguous: "
                          << group[c].columnName << '\n';
                     return false;
                 }
                 FieldIndex rightIndex{0, 0};
                 if (group[c].expectedIsColumn &&
                     !findField(group[c].expectedValue, rightIndex)) {
-                    cerr << "ERROR: unknown or ambiguous column: "
+                    cerr << "ERROR: WHERE right column not found or ambiguous: "
                          << group[c].expectedValue << '\n';
                     return false;
                 }
@@ -389,7 +391,7 @@ bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* wh
         while (tableReader.nextRow(line)) {
             tableReader.readLine(line, currentRows[level]);
             if (currentRows[level].Size() != config.countColumns(tableNames[level]) + 1) {
-                cerr << "ERROR: invalid CSV row in " << tableNames[level] << '\n';
+                cerr << "ERROR: CSV row has the wrong number of fields in table: " << tableNames[level] << '\n';
                 return false;
             }
             if (!scan(level + 1)) {
@@ -398,7 +400,7 @@ bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* wh
         }
 
         if (tableReader.hasReadError()) {
-            cerr << "ERROR: unable to read table CSV\n";
+            cerr << "ERROR: unable to read CSV files for table: " << tableNames[level] << '\n';
             return false;
         }
 
@@ -411,7 +413,7 @@ bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* wh
 bool SQLcommands::deleteRows(const string& tableName, const WhereClause& where) {
     fs::path pathToTable = fs::path(config.databaseName()) / tableName;
     if (!fs::is_directory(pathToTable)) {
-        cerr << "ERROR: table not found\n";
+        cerr << "ERROR: DELETE table not found: " << tableName << '\n';
         return false;
     }
 
@@ -440,7 +442,7 @@ bool SQLcommands::deleteRows(const string& tableName, const WhereClause& where) 
                 }
 
                 if (!found) {
-                    cerr << "ERROR: column not found\n";
+                    cerr << "ERROR: DELETE column not found in table " << tableName << ": " << columnName << '\n';
                     return false;
                 }
             }
@@ -449,7 +451,7 @@ bool SQLcommands::deleteRows(const string& tableName, const WhereClause& where) 
 
     TableLock tableLock(pathToTable / (tableName + "_lock"));
     if (!tableLock.isLocked()) {
-        cerr << "ERROR: unable to lock table: " << tableName << '\n';
+        cerr << "ERROR: DELETE cannot lock table: " << tableName << '\n';
         return false;
     }
 
@@ -467,14 +469,14 @@ bool SQLcommands::deleteRows(const string& tableName, const WhereClause& where) 
         ifstream tableFile(csvPath);
         string header;
         if (!getline(tableFile, header)) {
-            cerr << "ERROR: unable to read CSV header\n";
+            cerr << "ERROR: unable to read CSV header: " << csvPath << '\n';
             return false;
         }
 
         fs::path tempPath = pathToTable / (fileName + ".tmp");
         ofstream tempFile(tempPath);
         if (!tempFile.is_open()) {
-            cerr << "ERROR: unable to open temporary file\n";
+            cerr << "ERROR: unable to open temporary CSV file: " << tempPath << '\n';
             return false;
         }
 
@@ -494,14 +496,14 @@ bool SQLcommands::deleteRows(const string& tableName, const WhereClause& where) 
         tempFile.close();
 
         if (readError || tempFile.fail()) {
-            cerr << "ERROR: unable to copy CSV\n";
+            cerr << "ERROR: unable to read CSV or write temporary file: " << csvPath << '\n';
             return false;
         }
 
         std::error_code error;
         fs::rename(tempPath, csvPath, error);
         if (error) {
-            cerr << "ERROR: unable to replace CSV\n";
+            cerr << "ERROR: unable to replace CSV file " << csvPath << ": " << error.message() << '\n';
             return false;
         }
 

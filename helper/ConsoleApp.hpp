@@ -36,7 +36,7 @@ public:
             }
 
             if (!parser.execute(input)) {
-                cerr << "ERROR\n";
+                cerr << "ERROR: failed query: " << input << '\n';
             }
         }
 

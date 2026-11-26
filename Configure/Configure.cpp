@@ -5,32 +5,32 @@ bool ConfigureBD::readJSON(const string& path){
     ifstream file(path);
 
     if (!file.is_open()){
-        cerr << "ERROR: unable read fil\n";
+        cerr << "ERROR: unable to open schema file: " << path << '\n';
         return false;
     }
 
     try {
         schema = json::parse(file);
     } catch (const json::parse_error&) {
-        cerr << "ERROR: unable parse json\n";
+        cerr << "ERROR: invalid JSON in schema file: " << path << '\n';
         return false;
     }
     file.close();
 
     if (!schema.is_object()) {
-        cerr << "ERROR: unvalid configuration\n";
+        cerr << "ERROR: schema root must be an object\n";
         return false;
     }
     if (!schema.contains("name") || !schema["name"].is_string()) {
-        cerr << "ERROR: unvalid configuration\n";
+        cerr << "ERROR: schema field 'name' must be a string\n";
         return false;
     }
     if (!schema.contains("tuples_limit") || !schema["tuples_limit"].is_number_integer() || schema["tuples_limit"] <= 0) {
-        cerr << "ERROR: unvalid configuration\n";
+        cerr << "ERROR: schema field 'tuples_limit' must be a positive integer\n";
         return false;
     }
     if (!schema.contains("structure") || !schema["structure"].is_object()) {
-        cerr << "ERROR: unvalid configuration\n";
+        cerr << "ERROR: schema field 'structure' must be an object\n";
         return false;
     }
 
@@ -49,7 +49,7 @@ bool ConfigureBD::createDirectories(const string& path){
         if (!fs::exists( name + "/" + tableName + "/" + tableName + "_pk_sequence")) {
             ofstream file (name + "/" + tableName + "/" + tableName + "_pk_sequence");
             if (!file.is_open()) {
-                cerr << "ERROR: unable create file\n";
+                cerr << "ERROR: unable to create primary key sequence for table: " << tableName << '\n';
                 return false;
             }
             file << 0;
@@ -58,7 +58,7 @@ bool ConfigureBD::createDirectories(const string& path){
         if (!fs::exists( name + "/" + tableName + "/" + tableName + "_lock")) {
             ofstream file (name + "/" + tableName + "/" + tableName + "_lock");
             if (!file.is_open()) {
-                cerr << "ERROR\n";
+                cerr << "ERROR: unable to create lock file for table: " << tableName << '\n';
                 return false;
             }
             file.close();
@@ -66,7 +66,7 @@ bool ConfigureBD::createDirectories(const string& path){
         if(!fs::exists(fs::path(name) / tableName / "1.csv")){
             ofstream file(fs::path(name) / tableName / "1.csv");
             if (!file.is_open()){
-                cerr << "ERROR: unable create file\n";
+                cerr << "ERROR: unable to create 1.csv for table: " << tableName << '\n';
                 return false;
             }
             file << tableName << "_pk,";

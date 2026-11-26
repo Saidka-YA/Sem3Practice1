@@ -155,13 +155,13 @@ bool SQLParser::parseInsert() {
 
     if (!takeKeyword("INTO") || !takeText(TokenKind::Word, tableName) || !takeKeyword("VALUES") ||
         !takeSymbol('(') || !readList(TokenKind::String, values) || !takeSymbol(')') || !atEnd()) {
-        cerr << "ERROR: invalid INSERT syntax\n";
+        cerr << "ERROR: expected INSERT INTO <table> VALUES ('value', ...)\n";
         return false;
     }
 
     for (size_t i = 0; i < values.Size(); i++) {
         if (values[i].find_first_of("\r\n") != string::npos) {
-            cerr << "ERROR: INSERT value contains newline\n";
+            cerr << "ERROR: INSERT value " << i + 1 << " contains a newline\n";
             return false;
         }
     }
@@ -175,13 +175,13 @@ bool SQLParser::parseSelect() {
     WhereClause where;
 
     if (!readList(TokenKind::Word, columns) || !takeKeyword("FROM") || !readList(TokenKind::Word, tables)) {
-        cerr << "ERROR: invalid SELECT syntax\n";
+        cerr << "ERROR: expected SELECT <columns> FROM <tables> [WHERE <condition>]\n";
         return false;
     }
 
     bool hasWhere = takeKeyword("WHERE");
     if ((hasWhere && !readWhere(where)) || !atEnd()) {
-        cerr << "ERROR: invalid SELECT syntax\n";
+        cerr << "ERROR: invalid SELECT WHERE clause or unexpected text after table list\n";
         return false;
     }
 
@@ -194,7 +194,7 @@ bool SQLParser::parseDelete() {
 
     if (!takeKeyword("FROM") || !takeText(TokenKind::Word, tableName) || !takeKeyword("WHERE") ||
         !readWhere(where) || !atEnd()) {
-        cerr << "ERROR: invalid DELETE syntax\n";
+        cerr << "ERROR: expected DELETE FROM <table> WHERE <condition>\n";
         return false;
     }
 
@@ -219,7 +219,7 @@ bool SQLParser::parseDelete() {
 
 bool SQLParser::execute(const string& input) {
     if (!tokenize(input)) {
-        cerr << "ERROR: unclosed string literal\n";
+        cerr << "ERROR: string literal is missing a closing single quote\n";
         return false;
     }
 
@@ -233,6 +233,6 @@ bool SQLParser::execute(const string& input) {
         return parseDelete();
     }
 
-    cerr << "ERROR: unknown command\n";
+    cerr << "ERROR: unknown command; expected SELECT, INSERT, or DELETE\n";
     return false;
 }
