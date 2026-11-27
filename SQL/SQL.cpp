@@ -176,74 +176,110 @@ bool SQLcommands::matches(const string& tableName, const Vector<string>& fields,
     return false;
 }
 
-bool SQLcommands::select(const string& tableName, const WhereClause* where, const Vector<string>& columns) {
-    Vector<size_t> indexes;
-    const size_t columnCount = config.countColumns(tableName);
+bool SQLcommands::findField(const Vector<string>& tableNames, const string& name, FieldIndex& index) {
+    size_t dot = name.find('.');
+    string table = dot == string::npos ? "" : name.substr(0, dot);
+    string column = dot == string::npos ? name : name.substr(dot + 1);
+    bool found = false;
 
-    for (size_t i = 0; i < columns.Size(); i++) {
-        if (columns[i] == tableName + "_pk") {
-            indexes.pushBack(0);
+    for (size_t i = 0; i < tableNames.Size(); ++i) {
+        if (dot != string::npos && tableNames[i] != table) {
             continue;
         }
 
-        bool found = false;
-        for (size_t j = 0; j < columnCount; ++j) {
-            if (config.columnName(tableName, j) == columns[i]) {
-                indexes.pushBack(j + 1);
-                found = true;
+        size_t field = 0;
+        if (column != tableNames[i] + "_pk") {
+            size_t count = config.countColumns(tableNames[i]);
+            size_t j = 0;
+            while (j < count && config.columnName(tableNames[i], j) != column) {
+                ++j;
+            }
+            if (j == count) {
+                continue;
+            }
+            field = j + 1;
+        }
+
+        if (found) {
+            return false;
+        }
+
+        index = FieldIndex{i, field};
+        found = true;
+    }
+
+    return found;
+}
+
+const string& SQLcommands::fieldValue(const Vector<Vector<string>>& currentRows, const FieldIndex& index) {
+    return currentRows[index.table][index.field];
+}
+
+bool SQLcommands::matchesWhere(const Vector<Vector<IndexedCondition>>& groups,
+                               const Vector<Vector<string>>& currentRows) {
+    if (groups.Size() == 0) {
+        return true;
+    }
+
+    for (size_t g = 0; g < groups.Size(); ++g) {
+        bool groupMatches = true;
+        for (size_t c = 0; c < groups[g].Size(); ++c) {
+            const IndexedCondition& condition = groups[g][c];
+            const string& rightValue = condition.expectedIsColumn
+                ? fieldValue(currentRows, condition.rightIndex)
+                : condition.expectedValue;
+            if (fieldValue(currentRows, condition.index) != rightValue) {
+                groupMatches = false;
                 break;
             }
         }
+        if (groupMatches) {
+            return true;
+        }
+    }
 
-        if (!found) {
-            std::cerr << "ERROR: column not found in table " << tableName << ": " << columns[i] << '\n';
+    return false;
+}
+
+bool SQLcommands::scan(size_t level, const Vector<string>& tableNames, const Vector<fs::path>& paths,
+                       const Vector<FieldIndex>& indexes, const Vector<Vector<IndexedCondition>>& groups,
+                       Vector<Vector<string>>& currentRows) {
+    if (level == tableNames.Size()) {
+        if (matchesWhere(groups, currentRows)) {
+            for (size_t i = 0; i < indexes.Size(); ++i) {
+                if (i > 0) {
+                    cout << ',';
+                }
+                cout << fieldValue(currentRows, indexes[i]);
+            }
+            cout << '\n';
+        }
+        return true;
+    }
+
+    FileReader tableReader(paths[level]);
+    string line;
+    while (tableReader.nextRow(line)) {
+        tableReader.readLine(line, currentRows[level]);
+        if (currentRows[level].Size() != config.countColumns(tableNames[level]) + 1) {
+            cerr << "ERROR: CSV row has the wrong number of fields in table: " << tableNames[level] << '\n';
+            return false;
+        }
+        if (!scan(level + 1, tableNames, paths, indexes, groups, currentRows)) {
             return false;
         }
     }
 
-    fs::path pathToTable = config.databaseName() / fs::path(tableName);
-    FileReader tableReader(pathToTable);
-    string line;
-    Vector<string> fields;
-
-    while (tableReader.nextRow(line)) {
-        tableReader.readLine(line, fields);
-
-        if (where != nullptr && !matches(tableName, fields, *where)) {
-            continue;
-        }
-
-        for (size_t i = 0; i < indexes.Size(); ++i) {
-            if (i > 0) {
-                std::cout << ',';
-            }
-            std::cout << fields[indexes[i]];
-        }
-        std::cout << '\n';
-    }
-
     if (tableReader.hasReadError()) {
-        cerr << "ERROR: unable to read CSV files for table: " << tableName << '\n';
+        cerr << "ERROR: unable to read CSV files for table: " << tableNames[level] << '\n';
         return false;
     }
 
     return true;
 }
 
-bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* where, 
+bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* where,
                          const Vector<string>& columns) {
-    struct FieldIndex {
-        size_t table;
-        size_t field;
-    };
-
-    struct IndexedCondition {
-        FieldIndex index;
-        FieldIndex rightIndex;
-        string expectedValue;
-        bool expectedIsColumn;
-    };
-
     if (tableNames.Size() == 0 || columns.Size() == 0) {
         return false;
     }
@@ -258,45 +294,10 @@ bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* wh
         paths.pushBack(path);
     }
 
-    auto findField = [&](const string& name, FieldIndex& index) -> bool {
-        size_t dot = name.find('.');
-        string table = dot == string::npos ? "" : name.substr(0, dot);
-        string column = dot == string::npos ? name : name.substr(dot + 1);
-        bool found = false;
-
-        for (size_t i = 0; i < tableNames.Size(); ++i) {
-            if (dot != string::npos && tableNames[i] != table) {
-                continue;
-            }
-
-            size_t field = 0;
-            if (column != tableNames[i] + "_pk") {
-                size_t count = config.countColumns(tableNames[i]);
-                size_t j = 0;
-                while (j < count && config.columnName(tableNames[i], j) != column) {
-                    ++j;
-                }
-                if (j == count) {
-                    continue;
-                }
-                field = j + 1;
-            }
-
-            if (found) {
-                return false;
-            }
-
-            index = FieldIndex{i, field};
-            found = true;
-        }
-
-        return found;
-    };
-
     Vector<FieldIndex> indexes;
     for (size_t i = 0; i < columns.Size(); ++i) {
         FieldIndex index;
-        if (!findField(columns[i], index)) {
+        if (!findField(tableNames, columns[i], index)) {
             cerr << "ERROR: SELECT column not found or ambiguous: " << columns[i] << '\n';
             return false;
         }
@@ -318,14 +319,14 @@ bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* wh
             Vector<IndexedCondition> indexedGroup;
             for (size_t c = 0; c < group.Size(); ++c) {
                 FieldIndex index;
-                if (!findField(group[c].columnName, index)) {
+                if (!findField(tableNames, group[c].columnName, index)) {
                     cerr << "ERROR: WHERE column not found or ambiguous: "
                          << group[c].columnName << '\n';
                     return false;
                 }
                 FieldIndex rightIndex{0, 0};
                 if (group[c].expectedIsColumn &&
-                    !findField(group[c].expectedValue, rightIndex)) {
+                    !findField(tableNames, group[c].expectedValue, rightIndex)) {
                     cerr << "ERROR: WHERE right column not found or ambiguous: "
                          << group[c].expectedValue << '\n';
                     return false;
@@ -343,71 +344,7 @@ bool SQLcommands::select(const Vector<string>& tableNames, const WhereClause* wh
         currentRows.pushBack(Vector<string>{});
     }
 
-    auto fieldValue = [&](const FieldIndex& index) -> const string& {
-        return currentRows[index.table][index.field];
-    };
-
-    auto matchesWhere = [&]() -> bool {
-        if (where == nullptr) {
-            return true;
-        }
-
-        for (size_t g = 0; g < groups.Size(); ++g) {
-            bool groupMatches = true;
-            for (size_t c = 0; c < groups[g].Size(); ++c) {
-                const IndexedCondition& condition = groups[g][c];
-                const string& rightValue = condition.expectedIsColumn
-                    ? fieldValue(condition.rightIndex)
-                    : condition.expectedValue;
-                if (fieldValue(condition.index) != rightValue) {
-                    groupMatches = false;
-                    break;
-                }
-            }
-            if (groupMatches) {
-                return true;
-            }
-        }
-
-        return false;
-    };
-
-    std::function<bool(size_t)> scan = [&](size_t level) -> bool {
-        if (level == tableNames.Size()) {
-            if (matchesWhere()) {
-                for (size_t i = 0; i < indexes.Size(); ++i) {
-                    if (i > 0) {
-                        cout << ',';
-                    }
-                    cout << fieldValue(indexes[i]);
-                }
-                cout << '\n';
-            }
-            return true;
-        }
-
-        FileReader tableReader(paths[level]);
-        string line;
-        while (tableReader.nextRow(line)) {
-            tableReader.readLine(line, currentRows[level]);
-            if (currentRows[level].Size() != config.countColumns(tableNames[level]) + 1) {
-                cerr << "ERROR: CSV row has the wrong number of fields in table: " << tableNames[level] << '\n';
-                return false;
-            }
-            if (!scan(level + 1)) {
-                return false;
-            }
-        }
-
-        if (tableReader.hasReadError()) {
-            cerr << "ERROR: unable to read CSV files for table: " << tableNames[level] << '\n';
-            return false;
-        }
-
-        return true;
-    };
-
-    return scan(0);
+    return scan(0, tableNames, paths, indexes, groups, currentRows);
 }
 
 bool SQLcommands::deleteRows(const string& tableName, const WhereClause& where) {

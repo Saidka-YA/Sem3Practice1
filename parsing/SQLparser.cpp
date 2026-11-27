@@ -49,10 +49,8 @@ bool SQLParser::tokenize(const string& input) {
         }
 
         size_t start = i;
-        while (i < input.size() &&
-               !isspace(static_cast<unsigned char>(input[i])) &&
-               symbols.find(input[i]) == string::npos &&
-               input[i] != '\'') {
+        while (i < input.size() && !isspace(static_cast<unsigned char>(input[i])) &&
+               symbols.find(input[i]) == string::npos && input[i] != '\'') {
             i++;
         }
 
@@ -83,8 +81,7 @@ bool SQLParser::takeKeyword(const string& keyword) {
 }
 
 bool SQLParser::takeSymbol(char symbol) {
-    if (position >= tokens.Size() ||
-        tokens[position].kind != TokenKind::Symbol ||
+    if (position >= tokens.Size() || tokens[position].kind != TokenKind::Symbol ||
         tokens[position].text[0] != symbol) {
         return false;
     }
@@ -122,8 +119,7 @@ bool SQLParser::readWhere(WhereClause& where) {
 
         do {
             Condition condition;
-            if (!takeText(TokenKind::Word, condition.columnName) ||
-                !takeSymbol('=')) {
+            if (!takeText(TokenKind::Word, condition.columnName) || !takeSymbol('=')) {
                 return false;
             }
 
